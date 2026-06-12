@@ -17,7 +17,6 @@ function SucessoContent() {
 
   useEffect(() => {
     clearCart()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
@@ -54,16 +53,12 @@ function SucessoContent() {
         )}
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link
-            href="/conta"
-            className="flex items-center justify-center gap-2 bg-[#003E8A] hover:bg-[#002C63] text-white font-bold py-3 px-6 rounded-xl text-sm transition-colors"
-          >
+          <Link href="/conta"
+            className="flex items-center justify-center gap-2 bg-[#003E8A] hover:bg-[#002C63] text-white font-bold py-3 px-6 rounded-xl text-sm transition-colors">
             <Package size={15} /> Meus pedidos
           </Link>
-          <Link
-            href="/produtos"
-            className="flex items-center justify-center gap-2 border border-gray-200 text-gray-600 font-semibold py-3 px-6 rounded-xl text-sm hover:border-[#003E8A] transition-colors"
-          >
+          <Link href="/produtos"
+            className="flex items-center justify-center gap-2 border border-gray-200 text-gray-600 font-semibold py-3 px-6 rounded-xl text-sm hover:border-[#003E8A] transition-colors">
             Continuar comprando
           </Link>
         </div>

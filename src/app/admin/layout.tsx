@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, ShoppingBag, Users, Settings,
-  Menu, LogOut, ChevronRight, Layers, Warehouse, Truck,
+  Menu, LogOut, ChevronRight, Layers, Warehouse, Truck, Star, Tag,
 } from 'lucide-react'
 import { logout } from '@/lib/auth/actions'
 
@@ -17,6 +17,8 @@ const navItems = [
   { href: '/admin/pedidos', label: 'Pedidos', icon: <ShoppingBag size={16} /> },
   { href: '/admin/clientes', label: 'Clientes', icon: <Users size={16} /> },
   { href: '/admin/fornecedores', label: 'Fornecedores', icon: <Truck size={16} /> },
+  { href: '/admin/avaliacoes', label: 'Avaliações', icon: <Star size={16} /> },
+  { href: '/admin/cupons', label: 'Cupons', icon: <Tag size={16} /> },
   { href: '/admin/configuracoes', label: 'Configurações', icon: <Settings size={16} /> },
 ]
 

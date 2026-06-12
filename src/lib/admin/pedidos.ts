@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/db/supabase/server'
 import type { StatusPedido } from '@/types/database'
+import { enviarEmailPedidoEnviado } from '@/lib/email'
 
 async function assertAdmin() {
   const supabase = await createClient()
@@ -25,7 +26,7 @@ export async function listarPedidosAdmin(params?: {
   let query = supabase
     .from('pedidos')
     .select(`
-      id, numero, status, total, subtotal, frete,
+      id, numero, status, total, subtotal, frete, frete_servico,
       pagamento_metodo, criado_em, codigo_rastreio,
       perfil:perfis(nome, telefone),
       itens:pedido_itens(id, nome_produto, quantidade, preco_unitario, subtotal)
@@ -75,6 +76,49 @@ export async function atualizarRastreio(id: string, codigo_rastreio: string) {
     .eq('id', id)
   if (error) return { error: error.message }
   revalidatePath(`/admin/pedidos/${id}`)
+  revalidatePath('/admin/pedidos')
+
+  // Busca dados do pedido para enviar e-mail
+  const { data: pedido } = await supabase
+    .from('pedidos')
+    .select(`numero, endereco_entrega, perfil_id,
+      itens:pedido_itens(nome_produto, quantidade, preco_unitario)`)
+    .eq('id', id)
+    .single()
+
+  if (pedido) {
+    const { data: perfil } = await supabase
+      .from('perfis')
+      .select('nome')
+      .eq('id', pedido.perfil_id)
+      .single()
+
+    const { data: authUser } = await supabase.auth.admin.getUserById(pedido.perfil_id)
+
+    const emailCliente = authUser?.user?.email
+    if (emailCliente) {
+      const end = pedido.endereco_entrega as Record<string, string>
+      const itens = ((pedido.itens ?? []) as { nome_produto: string; quantidade: number; preco_unitario: number }[])
+        .map((i) => ({ nome: i.nome_produto, quantidade: i.quantidade, preco_unitario: i.preco_unitario }))
+
+      enviarEmailPedidoEnviado({
+        email: emailCliente,
+        numero: pedido.numero as number,
+        nome: perfil?.nome ?? emailCliente,
+        codigo_rastreio,
+        itens,
+        endereco: {
+          logradouro: end.logradouro ?? '',
+          numero: end.numero ?? '',
+          bairro: end.bairro ?? '',
+          cidade: end.cidade ?? '',
+          estado: end.estado ?? '',
+          cep: end.cep ?? '',
+        },
+      }).catch(() => {})
+    }
+  }
+
   return { success: true }
 }
 

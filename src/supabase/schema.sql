@@ -14,6 +14,7 @@ create table if not exists perfis (
   nome text,
   telefone text,
   cpf text,
+  foto_url text,
   role text not null default 'cliente' check (role in ('cliente', 'admin')),
   criado_em timestamptz not null default now(),
   atualizado_em timestamptz not null default now()
@@ -242,6 +243,81 @@ create policy "cliente_pedidos"    on pedidos    for select using (perfil_id = a
 create policy "cliente_itens"      on pedido_itens for select using (
   exists (select 1 from pedidos where id = pedido_id and perfil_id = auth.uid())
 );
+
+-- ============================================================
+-- AVALIAÇÕES DE PRODUTOS
+-- ============================================================
+create table if not exists avaliacoes (
+  id uuid primary key default uuid_generate_v4(),
+  produto_id uuid references produtos(id) on delete cascade not null,
+  perfil_id uuid references perfis(id) on delete cascade not null,
+  nota smallint not null check (nota between 1 and 5),
+  titulo text,
+  comentario text not null,
+  aprovado boolean not null default true,
+  criado_em timestamptz not null default now(),
+  unique (produto_id, perfil_id)
+);
+
+alter table avaliacoes enable row level security;
+create policy "avaliacoes_publico_select" on avaliacoes for select using (aprovado = true);
+create policy "avaliacoes_cliente_insert" on avaliacoes for insert with check (auth.uid() = perfil_id);
+create policy "avaliacoes_cliente_delete" on avaliacoes for delete using (auth.uid() = perfil_id);
+create policy "avaliacoes_admin_all" on avaliacoes for all using (exists (select 1 from perfis where id = auth.uid() and role = 'admin'));
+
+-- Trigger: recalcula média e total no produto ao inserir/atualizar/excluir avaliação
+create or replace function atualizar_media_avaliacoes()
+returns trigger as $$
+declare v_produto_id uuid;
+begin
+  v_produto_id := coalesce(new.produto_id, old.produto_id);
+  update produtos set
+    avaliacao_media = coalesce((select round(avg(nota)::numeric, 1) from avaliacoes where produto_id = v_produto_id and aprovado = true), 0),
+    total_avaliacoes = (select count(*) from avaliacoes where produto_id = v_produto_id and aprovado = true)
+  where id = v_produto_id;
+  return coalesce(new, old);
+end;
+$$ language plpgsql security definer;
+
+do $$ begin
+  create trigger trg_avaliacoes_media
+    after insert or update or delete on avaliacoes
+    for each row execute function atualizar_media_avaliacoes();
+exception when duplicate_object then null; end $$;
+
+-- ============================================================
+-- CUPONS DE DESCONTO
+-- ============================================================
+create table if not exists cupons (
+  id uuid primary key default uuid_generate_v4(),
+  codigo text not null unique,
+  desconto_tipo text not null check (desconto_tipo in ('percentual', 'fixo')),
+  desconto_valor numeric(10,2) not null check (desconto_valor > 0),
+  valido_ate date,
+  ativo boolean not null default true,
+  uso_maximo integer,
+  uso_atual integer not null default 0,
+  valor_minimo numeric(10,2),
+  criado_em timestamptz not null default now()
+);
+
+alter table cupons enable row level security;
+create policy "cupons_admin_all" on cupons for all using (exists (select 1 from perfis where id = auth.uid() and role = 'admin'));
+
+-- Clientes podem ler cupons ativos (necessário para validação client-side)
+create policy "cupons_publico_select" on cupons for select using (ativo = true);
+
+-- Coluna cupom no pedido
+alter table pedidos add column if not exists cupom_id uuid references cupons(id) on delete set null;
+alter table pedidos add column if not exists cupom_codigo text;
+
+-- Função RPC para incrementar uso de cupom de forma segura
+create or replace function incrementar_uso_cupom(p_cupom_id uuid)
+returns void as $$
+begin
+  update cupons set uso_atual = uso_atual + 1 where id = p_cupom_id;
+end;
+$$ language plpgsql security definer;
 
 -- ============================================================
 -- ÍNDICES para performance

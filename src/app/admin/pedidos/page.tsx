@@ -7,8 +7,9 @@ import { listarPedidosAdmin, atualizarStatusPedido } from '@/lib/admin/pedidos'
 import type { StatusPedido } from '@/types/database'
 
 type Pedido = {
-  id: string; numero: string; status: StatusPedido; total: number; criado_em: string
+  id: string; numero: string; status: StatusPedido; total: number; frete: number; criado_em: string
   pagamento_metodo: string | null; codigo_rastreio: string | null
+  frete_servico: string | null
   perfil: { nome: string; telefone: string | null } | null
   itens: { id: string; nome_produto: string; quantidade: number; preco_unitario: number }[]
 }
@@ -162,12 +163,20 @@ export default function AdminPedidosPage() {
                             <span className="font-semibold text-[#222]">{fmt(item.preco_unitario * item.quantidade)}</span>
                           </div>
                         ))}
-                        {pedido.codigo_rastreio && (
-                          <p className="text-xs text-blue-600 pt-2">Rastreio: <span className="font-mono font-bold">{pedido.codigo_rastreio}</span></p>
-                        )}
-                        {pedido.pagamento_metodo && (
-                          <p className="text-xs text-gray-500">Pagamento: {pedido.pagamento_metodo}</p>
-                        )}
+                        <div className="border-t border-gray-100 pt-2 mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                          <p className="text-xs text-gray-500">
+                            Frete: <span className="font-semibold text-[#222]">
+                              {pedido.frete_servico ?? '—'}
+                              {pedido.frete > 0 && ` · ${fmt(pedido.frete)}`}
+                            </span>
+                          </p>
+                          {pedido.pagamento_metodo && (
+                            <p className="text-xs text-gray-500">Pagamento: <span className="font-semibold text-[#222]">{pedido.pagamento_metodo}</span></p>
+                          )}
+                          {pedido.codigo_rastreio && (
+                            <p className="text-xs text-blue-600">Rastreio: <span className="font-mono font-bold">{pedido.codigo_rastreio}</span></p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}

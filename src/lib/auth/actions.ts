@@ -25,9 +25,16 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
 export async function cadastro(prevState: AuthState, formData: FormData): Promise<AuthState> {
   const supabase = await createClient()
 
+  const password = formData.get('password') as string
+  const confirmPassword = formData.get('confirmPassword') as string
+
+  if (password !== confirmPassword) {
+    return { error: 'As senhas não coincidem.' }
+  }
+
   const { error } = await supabase.auth.signUp({
     email: formData.get('email') as string,
-    password: formData.get('password') as string,
+    password,
     options: {
       data: { nome: formData.get('nome') as string },
     },
@@ -39,6 +46,30 @@ export async function cadastro(prevState: AuthState, formData: FormData): Promis
 
   revalidatePath('/', 'layout')
   redirect('/')
+}
+
+export async function atualizarPerfil(data: {
+  nome: string
+  telefone: string
+  foto_url?: string
+}): Promise<AuthState> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const updateData: Record<string, string> = {
+    nome: data.nome,
+    telefone: data.telefone,
+  }
+  if (data.foto_url) updateData.foto_url = data.foto_url
+
+  const { error } = await supabase.from('perfis').update(updateData).eq('id', user.id)
+  if (error) return { error: error.message }
+
+  await supabase.auth.updateUser({ data: { nome: data.nome } })
+
+  revalidatePath('/conta')
+  return { success: 'Perfil atualizado com sucesso!' }
 }
 
 export async function logout() {

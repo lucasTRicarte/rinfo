@@ -21,8 +21,14 @@ export type ProdutoCard = {
 export type ProdutoDetalhe = ProdutoCard & {
   descricao: string | null
   descricao_curta: string | null
+  peso_kg: number | null
   specs: { chave: string; valor: string }[]
   imagens: { url: string; alt: string | null; principal: boolean }[]
+}
+
+export type ListarProdutosResult = {
+  produtos: ProdutoCard[]
+  total: number
 }
 
 const BASE_SELECT = `
@@ -56,22 +62,60 @@ export async function listarProdutos(params?: {
   categoria_slug?: string
   busca?: string
   preco_max?: number
-}): Promise<ProdutoCard[]> {
+  sort?: 'relevancia' | 'menor-preco' | 'maior-preco' | 'avaliacao'
+  pagina?: number
+  por_pagina?: number
+}): Promise<ListarProdutosResult> {
   const supabase = await createClient()
+  const porPagina = params?.por_pagina ?? 20
+  const pagina   = Math.max(1, params?.pagina ?? 1)
+  const from     = (pagina - 1) * porPagina
+  const to       = from + porPagina - 1
 
-  let query = supabase.from('produtos').select(BASE_SELECT).eq('ativo', true)
+  let query = supabase
+    .from('produtos')
+    .select(BASE_SELECT, { count: 'exact' })
+    .eq('ativo', true)
 
   if (params?.categoria_slug) {
     const { data: cat } = await supabase
-      .from('categorias').select('id').eq('slug', params.categoria_slug).single()
-    if (cat) query = query.eq('categoria_id', cat.id)
+      .from('categorias').select('id, pai_id').eq('slug', params.categoria_slug).single()
+    if (cat) {
+      const catData = cat as { id: string; pai_id: string | null }
+      if (catData.pai_id === null) {
+        // Categoria pai: inclui produtos das subcategorias também
+        const { data: subcats } = await supabase
+          .from('categorias').select('id').eq('pai_id', catData.id).eq('ativo', true)
+        const ids = [catData.id, ...(subcats ?? []).map((s) => (s as { id: string }).id)]
+        query = query.in('categoria_id', ids)
+      } else {
+        // Subcategoria: filtro exato — só o que está diretamente nela
+        query = query.eq('categoria_id', catData.id)
+      }
+    }
   }
-  if (params?.busca) query = query.ilike('nome', `%${params.busca}%`)
+
+  if (params?.busca) {
+    const termo = params.busca.replace(/[%_]/g, '\\$&')
+    query = query.or(`nome.ilike.%${termo}%,descricao.ilike.%${termo}%`)
+  }
+
   if (params?.preco_max) query = query.lte('preco', params.preco_max)
 
-  const { data, error } = await query.order('criado_em', { ascending: false })
+  switch (params?.sort) {
+    case 'menor-preco': query = query.order('preco', { ascending: true });  break
+    case 'maior-preco': query = query.order('preco', { ascending: false }); break
+    case 'avaliacao':   query = query.order('avaliacao_media', { ascending: false }); break
+    default:            query = query.order('criado_em', { ascending: false })
+  }
+
+  const { data, error, count } = await query.range(from, to)
   if (error) throw error
-  return (data ?? []).map((p) => mapCard(p as Record<string, unknown>))
+
+  return {
+    produtos: (data ?? []).map((p) => mapCard(p as Record<string, unknown>)),
+    total: count ?? 0,
+  }
 }
 
 export async function listarProdutosDestaque(): Promise<ProdutoCard[]> {
@@ -98,7 +142,7 @@ export async function buscarProdutoPorSlug(slug: string): Promise<ProdutoDetalhe
   const { data, error } = await supabase
     .from('produtos')
     .select(`
-      id, nome, slug, preco, preco_original, badge, descricao, descricao_curta,
+      id, nome, slug, preco, preco_original, badge, descricao, descricao_curta, peso_kg,
       avaliacao_media, total_avaliacoes, estoque_fisico, dropshipping,
       categoria:categorias(nome, slug),
       specs:produto_specs(chave, valor, ordem),
@@ -117,6 +161,7 @@ export async function buscarProdutoPorSlug(slug: string): Promise<ProdutoDetalhe
     ...mapCard(d),
     descricao: (d.descricao as string) ?? null,
     descricao_curta: (d.descricao_curta as string) ?? null,
+    peso_kg: (d.peso_kg as number) ?? null,
     specs: ((d.specs ?? []) as Record<string, unknown>[])
       .sort((a, b) => (a.ordem as number) - (b.ordem as number))
       .map((s) => ({ chave: s.chave as string, valor: s.valor as string })),

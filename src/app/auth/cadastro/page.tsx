@@ -1,12 +1,20 @@
 'use client'
 
+import { useState } from 'react'
 import { useActionState } from 'react'
 import { cadastro } from '@/lib/auth/actions'
 import Link from 'next/link'
-import { Mail, Lock, User, ArrowRight } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react'
 
 export default function CadastroPage() {
   const [state, action, pending] = useActionState(cadastro, null)
+  const [showPass, setShowPass] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [localError, setLocalError] = useState('')
+
+  const passwordsMatch = !confirmPassword || password === confirmPassword
 
   return (
     <div className="min-h-screen bg-[#002C63] flex flex-col items-center justify-center px-4 py-12">
@@ -26,10 +34,21 @@ export default function CadastroPage() {
           <p className="text-gray-500 text-sm mt-1">Junte-se à Ricarte Informática</p>
         </div>
 
-        <form action={action} className="space-y-4">
-          {state?.error && (
+        <form
+          action={action}
+          onSubmit={(e) => {
+            if (password !== confirmPassword) {
+              e.preventDefault()
+              setLocalError('As senhas não coincidem.')
+              return
+            }
+            setLocalError('')
+          }}
+          className="space-y-4"
+        >
+          {(localError || state?.error) && (
             <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl border border-red-100">
-              {state.error}
+              {localError || state?.error}
             </div>
           )}
           {state?.success && (
@@ -42,9 +61,8 @@ export default function CadastroPage() {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nome completo</label>
             <div className="relative">
               <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input name="nome" type="text" required autoComplete="name" placeholder="Seu nome"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#003E8A] focus:ring-2 focus:ring-[#003E8A]/10 bg-gray-50"
-              />
+              <input name="nome" type="text" required autoComplete="name" placeholder="Seu nome completo"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#003E8A] focus:ring-2 focus:ring-[#003E8A]/10 bg-gray-50" />
             </div>
           </div>
 
@@ -53,8 +71,7 @@ export default function CadastroPage() {
             <div className="relative">
               <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input name="email" type="email" required autoComplete="email" placeholder="seu@email.com"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#003E8A] focus:ring-2 focus:ring-[#003E8A]/10 bg-gray-50"
-              />
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#003E8A] focus:ring-2 focus:ring-[#003E8A]/10 bg-gray-50" />
             </div>
           </div>
 
@@ -62,17 +79,50 @@ export default function CadastroPage() {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Senha</label>
             <div className="relative">
               <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input name="password" type="password" required autoComplete="new-password" placeholder="Mínimo 6 caracteres"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#003E8A] focus:ring-2 focus:ring-[#003E8A]/10 bg-gray-50"
+              <input
+                name="password" type={showPass ? 'text' : 'password'} required autoComplete="new-password"
+                placeholder="Mínimo 6 caracteres"
+                value={password} onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#003E8A] focus:ring-2 focus:ring-[#003E8A]/10 bg-gray-50"
               />
+              <button type="button" onClick={() => setShowPass(!showPass)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 
-          <button type="submit" disabled={pending}
-            className="w-full flex items-center justify-center gap-2 bg-[#003E8A] hover:bg-[#002C63] disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm transition-colors"
-          >
-            {pending ? 'Criando conta...' : 'Criar conta'}
-            {!pending && <ArrowRight size={15} />}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Confirmar senha</label>
+            <div className="relative">
+              <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                name="confirmPassword" type={showConfirm ? 'text' : 'password'} required autoComplete="new-password"
+                placeholder="Repita a senha"
+                value={confirmPassword}
+                onChange={(e) => { setConfirmPassword(e.target.value); setLocalError('') }}
+                className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-sm focus:outline-none bg-gray-50 ${
+                  !passwordsMatch
+                    ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-400/10'
+                    : 'border-gray-200 focus:border-[#003E8A] focus:ring-2 focus:ring-[#003E8A]/10'
+                }`}
+              />
+              <button type="button" onClick={() => setShowConfirm(!showConfirm)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {!passwordsMatch && (
+              <p className="text-xs text-red-500 mt-1">As senhas não coincidem</p>
+            )}
+          </div>
+
+          <button type="submit" disabled={pending || !passwordsMatch}
+            className="w-full flex items-center justify-center gap-2 bg-[#003E8A] hover:bg-[#002C63] disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm transition-colors">
+            {pending
+              ? <><Loader2 size={15} className="animate-spin" /> Criando conta...</>
+              : <>Criar conta <ArrowRight size={15} /></>
+            }
           </button>
         </form>
 
@@ -83,6 +133,7 @@ export default function CadastroPage() {
           </p>
         </div>
       </div>
+
       <p className="text-white/30 text-xs mt-6">© 2025 Ricarte Informática. Todos os direitos reservados.</p>
     </div>
   )

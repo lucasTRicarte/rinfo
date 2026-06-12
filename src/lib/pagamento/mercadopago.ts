@@ -35,7 +35,7 @@ export async function criarPreferencia(params: {
         failure: `${siteUrl}/checkout/falha`,
         pending: `${siteUrl}/checkout/pendente`,
       },
-      auto_return: 'approved',
+      ...(siteUrl.startsWith('https://') ? { auto_return: 'approved' as const } : {}),
       payment_methods: {
         installments: 12,
       },
