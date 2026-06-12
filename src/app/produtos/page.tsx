@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import ShopLayout from '@/components/layout/ShopLayout'
 import { listarProdutos } from '@/lib/loja/produtos'
@@ -28,7 +28,7 @@ function ProdutoImagem({ url, nome }: { url: string | null; nome: string }) {
   return <Package size={40} className="text-gray-300" />
 }
 
-export default function ProdutosPage() {
+function ProdutosContent() {
   const searchParams = useSearchParams()
   const [selectedCategory, setSelectedCategory] = useState<string | null>(searchParams.get('categoria'))
   const [sort, setSort] = useState('relevancia')
@@ -205,5 +205,14 @@ export default function ProdutosPage() {
         </div>
       </div>
     </ShopLayout>
+  )
+}
+
+
+export default function ProdutosPage() {
+  return (
+    <Suspense fallback={<div className="py-16 text-center text-gray-400">Carregando...</div>}>
+      <ProdutosContent />
+    </Suspense>
   )
 }

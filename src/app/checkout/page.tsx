@@ -64,12 +64,12 @@ export default function CheckoutPage() {
         },
       })
 
-      if (result.error) {
+      if ('error' in result) {
         setErro(result.error)
         return
       }
 
-      window.location.href = result.init_point!
+      window.location.href = result.init_point
     })
   }
 
