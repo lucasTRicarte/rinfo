@@ -27,17 +27,27 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Protege rotas /admin — redireciona para login se não autenticado
-  if (request.nextUrl.pathname.startsWith('/admin')) {
+  // Protege rotas /conta — redireciona para login se não autenticado
+  if (request.nextUrl.pathname.startsWith('/conta')) {
     if (!user) {
       return NextResponse.redirect(new URL('/auth/login', request.url))
     }
   }
 
-  // Protege rotas /conta — redireciona para login se não autenticado
-  if (request.nextUrl.pathname.startsWith('/conta')) {
+  // Protege rotas /admin — exige login E role = 'admin'
+  if (request.nextUrl.pathname.startsWith('/admin')) {
     if (!user) {
       return NextResponse.redirect(new URL('/auth/login', request.url))
+    }
+
+    const { data: perfil } = await supabase
+      .from('perfis')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (perfil?.role !== 'admin') {
+      return NextResponse.redirect(new URL('/', request.url))
     }
   }
 

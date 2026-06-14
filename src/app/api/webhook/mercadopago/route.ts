@@ -14,8 +14,25 @@ const statusMap: Record<string, string> = {
   charged_back: 'reembolsado',
 }
 
+function validarOrigemMP(req: NextRequest): boolean {
+  // O MP envia o x-request-id e user-agent característicos
+  const userAgent = req.headers.get('user-agent') ?? ''
+  const hasMPAgent = userAgent.toLowerCase().includes('mercadopago') ||
+                     userAgent.toLowerCase().includes('meli')
+
+  // Em desenvolvimento local, aceita sem validar (MP não alcança localhost)
+  const isDev = process.env.NEXT_PUBLIC_SITE_URL?.includes('localhost')
+  if (isDev) return true
+
+  return hasMPAgent
+}
+
 export async function POST(req: NextRequest) {
   try {
+    if (!validarOrigemMP(req)) {
+      return new Response('Forbidden', { status: 403 })
+    }
+
     const body = await req.json()
 
     if (body.type !== 'payment') return NextResponse.json({ ok: true })
